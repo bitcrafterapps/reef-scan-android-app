@@ -1,3 +1,113 @@
 <resources>
-    <string name="app_name">Reef Scan</string>
+    <!-- App Name -->
+    <string name="app_name">ReefScan</string>
+    
+    <!-- App Info -->
+    <string name="app_tagline">AI-Powered Aquarium Diagnostics</string>
+    <string name="app_description">Beyond-the-glass vision for your reef</string>
+    
+    <!-- Splash Screen -->
+    <string name="splash_title">ReefScan</string>
+    <string name="splash_subtitle">Beyond-the-glass vision for your reef</string>
+    <string name="splash_powered_by">Powered by GPT-4o Vision</string>
+    
+    <!-- Tanks Screen -->
+    <string name="tanks_title">My Tanks</string>
+    <string name="tanks_empty_title">No Tanks Yet</string>
+    <string name="tanks_empty_message">Add your first aquarium to start scanning</string>
+    <string name="tanks_add_button">Add Tank</string>
+    
+    <!-- Home Screen -->
+    <string name="home_scan_title">Scan Your Tank</string>
+    <string name="home_scan_subtitle">Identify fish, coral, or issues instantly</string>
+    <string name="home_scan_button">Scan</string>
+    <string name="home_add_pics_button">Add Pics</string>
+    
+    <!-- Scan Categories -->
+    <string name="category_fish_id">Fish ID</string>
+    <string name="category_coral_id">Coral ID</string>
+    <string name="category_algae_detection">Algae Detection</string>
+    <string name="category_pest_alerts">Pest Alerts</string>
+    
+    <!-- Camera Screen -->
+    <string name="camera_capture">Capture</string>
+    <string name="camera_gallery">Gallery</string>
+    <string name="camera_permission_required">Camera permission is required</string>
+    <string name="camera_permission_rationale">ReefScan needs camera access to scan your aquarium</string>
+    
+    <!-- Loading Screen -->
+    <string name="loading_title">Analyzing</string>
+    <string name="loading_message">Scanning reef life…</string>
+    
+    <!-- Results Screen -->
+    <string name="results_title">Scan Results</string>
+    <string name="results_confidence">Confidence</string>
+    <string name="results_recommendations">Recommendations</string>
+    <string name="results_save">Save Scan</string>
+    <string name="results_scan_again">Scan Again</string>
+    <string name="results_saved">Scan saved!</string>
+    
+    <!-- Saved Scans Screen -->
+    <string name="saved_scans_title">Saved Scans</string>
+    <string name="saved_scans_empty_title">No Saved Scans</string>
+    <string name="saved_scans_empty_message">Your scan history will appear here</string>
+    
+    <!-- Gallery Screen -->
+    <string name="gallery_title">Tank Gallery</string>
+    <string name="gallery_empty_title">No Photos Yet</string>
+    <string name="gallery_empty_message">Add photos to track your tank\'s progress</string>
+    
+    <!-- Dialog Buttons -->
+    <string name="dialog_save">Save</string>
+    <string name="dialog_cancel">Cancel</string>
+    <string name="dialog_delete">Delete</string>
+    <string name="dialog_confirm">Confirm</string>
+    
+    <!-- Tank Dialog -->
+    <string name="tank_dialog_add_title">Add New Tank</string>
+    <string name="tank_dialog_edit_title">Edit Tank</string>
+    <string name="tank_name_hint">Tank Name</string>
+    <string name="tank_description_hint">Description (optional)</string>
+    <string name="tank_size_hint">Size</string>
+    <string name="tank_manufacturer_hint">Manufacturer</string>
+    
+    <!-- Delete Confirmation -->
+    <string name="delete_tank_title">Delete Tank?</string>
+    <string name="delete_tank_message">Are you sure you want to delete this tank? All associated scans and photos will be permanently deleted.</string>
+    <string name="delete_photo_title">Delete Photo?</string>
+    <string name="delete_photo_message">Are you sure you want to delete this photo?</string>
+    
+    <!-- Help Screen -->
+    <string name="help_title">How to Use ReefScan</string>
+    <string name="help_subtitle">Quick guide to get started</string>
+    
+    <!-- Status Labels -->
+    <string name="status_healthy">Healthy</string>
+    <string name="status_warning">Warning</string>
+    <string name="status_problem">Problem</string>
+    
+    <!-- Severity Labels -->
+    <string name="severity_low">Low</string>
+    <string name="severity_medium">Medium</string>
+    <string name="severity_high">High</string>
+    
+    <!-- Error Messages -->
+    <string name="error_generic">Something went wrong. Please try again.</string>
+    <string name="error_network">No internet connection. Please check your network.</string>
+    <string name="error_api">Unable to analyze image. Please try again.</string>
+    <string name="error_camera">Camera error. Please restart the app.</string>
+    <string name="error_retry">Retry</string>
+    
+    <!-- Content Descriptions -->
+    <string name="cd_back">Go back</string>
+    <string name="cd_close">Close</string>
+    <string name="cd_edit">Edit</string>
+    <string name="cd_delete">Delete</string>
+    <string name="cd_share">Share</string>
+    <string name="cd_gallery">Open gallery</string>
+    <string name="cd_history">View history</string>
+    <string name="cd_help">Help</string>
+    <string name="cd_capture">Capture photo</string>
+    <string name="cd_tank_image">Tank image</string>
+    <string name="cd_scan_image">Scan image</string>
 </resources>
