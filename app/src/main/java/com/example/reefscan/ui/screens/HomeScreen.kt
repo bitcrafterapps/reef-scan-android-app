@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PhotoLibrary
@@ -34,15 +35,19 @@ import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.SetMeal
 import androidx.compose.material.icons.outlined.Spa
 import androidx.compose.material.icons.outlined.WaterDrop
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,6 +69,7 @@ import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
 import com.example.reefscan.R
 import com.example.reefscan.data.local.ScanRepository
+import com.example.reefscan.ui.components.AddEditTankDialog
 import com.example.reefscan.ui.components.ScanButton
 import com.example.reefscan.ui.theme.AquaBlue
 import com.example.reefscan.ui.theme.AquaBlueDark
@@ -99,6 +105,10 @@ fun HomeScreen(
     )
 
     val tank by finalViewModel.tank.collectAsState()
+    
+    // Edit dialog state
+    var showEditDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
 
     LaunchedEffect(tankId) {
         finalViewModel.loadTank(tankId)
@@ -195,6 +205,23 @@ fun HomeScreen(
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Edit Button
+                    IconButton(
+                        onClick = { showEditDialog = true },
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(GlassWhite)
+                            .border(1.dp, GlassWhiteBorder, CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Edit,
+                            contentDescription = "Edit Tank",
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+
                     // Gallery Button
                     IconButton(
                         onClick = onNavigateToGallery,
@@ -409,6 +436,52 @@ fun HomeScreen(
                     textAlign = TextAlign.Center
                 )
             }
+        }
+
+        // Edit Tank Dialog
+        if (showEditDialog && tank != null) {
+            AddEditTankDialog(
+                tank = tank,
+                onDismiss = { showEditDialog = false },
+                onSave = { name, desc, size, manufacturer, uri ->
+                    finalViewModel.updateTank(
+                        tank!!.id, name, desc, size, manufacturer, uri, tank!!.imagePath
+                    )
+                    showEditDialog = false
+                },
+                onDelete = {
+                    showDeleteConfirmation = true
+                }
+            )
+        }
+
+        // Delete Confirmation Dialog
+        if (showDeleteConfirmation && tank != null) {
+            AlertDialog(
+                onDismissRequest = { showDeleteConfirmation = false },
+                title = { Text("Delete Tank?") },
+                text = { Text("Are you sure you want to delete \"${tank?.name}\"? This will also delete all associated scans and images. This action cannot be undone.") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            finalViewModel.deleteTank(tank!!)
+                            showDeleteConfirmation = false
+                            showEditDialog = false
+                            onNavigateBack()
+                        }
+                    ) {
+                        Text("Delete", color = Color.Red)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteConfirmation = false }) {
+                        Text("Cancel")
+                    }
+                },
+                containerColor = DeepOcean,
+                titleContentColor = Color.White,
+                textContentColor = Color.White.copy(alpha = 0.8f)
+            )
         }
     }
 }

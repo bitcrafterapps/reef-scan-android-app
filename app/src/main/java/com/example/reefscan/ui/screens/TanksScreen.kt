@@ -169,7 +169,11 @@ fun TanksScreen(
                         items(tanks) { tank ->
                             TankCard(
                                 tank = tank,
-                                onClick = { onTankSelected(tank.id) }
+                                onClick = { onTankSelected(tank.id) },
+                                onEditClick = {
+                                    tankToEdit = tank
+                                    showAddEditDialog = true
+                                }
                             )
                         }
                     }
@@ -239,7 +243,8 @@ fun TanksScreen(
 @Composable
 fun TankCard(
     tank: TankEntity,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onEditClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -300,8 +305,31 @@ fun TankCard(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(12.dp),
-                verticalArrangement = Arrangement.Bottom
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
+                // Edit Button at top right
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.3f))
+                            .clickable(onClick = onEditClick),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+
+                // Tank info at bottom
                 Column {
                     Text(
                         text = tank.name,
