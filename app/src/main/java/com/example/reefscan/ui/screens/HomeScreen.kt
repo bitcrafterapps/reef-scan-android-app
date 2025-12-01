@@ -27,20 +27,28 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.SetMeal
 import androidx.compose.material.icons.outlined.Spa
 import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -89,6 +97,7 @@ import java.util.Locale
 
 private const val TAG = "HomeScreen"
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     tankId: Long,
@@ -109,6 +118,10 @@ fun HomeScreen(
     // Edit dialog state
     var showEditDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
+    
+    // Help sheet state
+    var showHelpSheet by remember { mutableStateOf(false) }
+    val helpSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     LaunchedEffect(tankId) {
         finalViewModel.loadTank(tankId)
@@ -251,6 +264,23 @@ fun HomeScreen(
                         Icon(
                             imageVector = Icons.Filled.History,
                             contentDescription = "Scan History",
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+
+                    // Help Button
+                    IconButton(
+                        onClick = { showHelpSheet = true },
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(GlassWhite)
+                            .border(1.dp, GlassWhiteBorder, CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.HelpOutline,
+                            contentDescription = "Help",
                             tint = Color.White,
                             modifier = Modifier.size(22.dp)
                         )
@@ -483,6 +513,33 @@ fun HomeScreen(
                 textContentColor = Color.White.copy(alpha = 0.8f)
             )
         }
+
+        // Help Bottom Sheet
+        if (showHelpSheet) {
+            ModalBottomSheet(
+                onDismissRequest = { showHelpSheet = false },
+                sheetState = helpSheetState,
+                containerColor = DeepOcean,
+                dragHandle = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Box(
+                            modifier = Modifier
+                                .width(40.dp)
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(Color.White.copy(alpha = 0.3f))
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+                }
+            ) {
+                HelpContent()
+            }
+        }
     }
 }
 
@@ -532,6 +589,187 @@ private fun FeaturePill(
             color = Color.White.copy(alpha = 0.9f),
             fontWeight = FontWeight.Medium
         )
+    }
+}
+
+@Composable
+private fun HelpContent() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+            .padding(bottom = 32.dp)
+    ) {
+        // Header
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(bottom = 24.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(AquaBlue, AquaBlueDark)
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Lightbulb,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column {
+                Text(
+                    text = "How to Use ReefScan",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Quick guide to get started",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.6f)
+                )
+            }
+        }
+
+        // Help Items
+        HelpItem(
+            icon = Icons.Filled.CameraAlt,
+            title = "Scan Your Tank",
+            description = "Tap 'Scan' to take a photo of your aquarium. Our AI will analyze it and identify fish, coral, and potential issues.",
+            color = AquaBlue
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        HelpItem(
+            icon = Icons.Filled.TouchApp,
+            title = "Quick Categories",
+            description = "Use Fish ID, Coral ID, Algae Detection, or Pest Alerts for targeted scans focused on specific identification.",
+            color = CategoryFish
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        HelpItem(
+            icon = Icons.Filled.PhotoLibrary,
+            title = "Add Photos",
+            description = "Build a visual timeline of your tank. Tap 'Add Pics' to capture photos or import from your gallery.",
+            color = CategorySPSCoral
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        HelpItem(
+            icon = Icons.Filled.History,
+            title = "View History",
+            description = "Access all your past scans and analysis results. Track changes in your tank over time.",
+            color = CategoryAlgae
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        HelpItem(
+            icon = Icons.Filled.Star,
+            title = "Rate & Organize",
+            description = "Rate your best photos in the gallery. Use folders organized by date to track your tank's progress.",
+            color = CategoryPest
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Pro Tips Section
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            AquaBlue.copy(alpha = 0.15f),
+                            AquaBlueDark.copy(alpha = 0.1f)
+                        )
+                    )
+                )
+                .border(
+                    width = 1.dp,
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(
+                            AquaBlue.copy(alpha = 0.3f),
+                            AquaBlueDark.copy(alpha = 0.2f)
+                        )
+                    ),
+                    shape = RoundedCornerShape(16.dp)
+                )
+                .padding(16.dp)
+        ) {
+            Column {
+                Text(
+                    text = "💡 Pro Tips",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = AquaBlue,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "• Use good lighting for best results\n• Hold your phone steady when scanning\n• Clean the glass before taking photos\n• Scan regularly to catch issues early",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.8f),
+                    lineHeight = 20.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HelpItem(
+    icon: ImageVector,
+    title: String,
+    description: String,
+    color: Color
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(color.copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = color,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Spacer(modifier = Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                color = Color.White,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.7f),
+                lineHeight = 18.sp
+            )
+        }
     }
 }
 
