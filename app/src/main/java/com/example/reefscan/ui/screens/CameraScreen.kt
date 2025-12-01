@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.net.Uri
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
@@ -98,8 +99,10 @@ enum class FilterType {
 @Composable
 fun CameraScreen(
     mode: String = "COMPREHENSIVE",
+    tankId: Long,
     onNavigateBack: () -> Unit,
-    onNavigateToLoading: (String) -> Unit
+    onNavigateToLoading: (String) -> Unit,
+    onGalleryImageCaptured: (Uri) -> Unit = {}
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -234,7 +237,12 @@ fun CameraScreen(
                                 filterColor = colorToApply,
                                 onSuccess = { uri ->
                                     isCapturing = false
-                                    onNavigateToLoading(uri.toString())
+                                    if (mode == "GALLERY") {
+                                        onGalleryImageCaptured(uri)
+                                        Toast.makeText(context, "Saved to Gallery", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        onNavigateToLoading(uri.toString())
+                                    }
                                 },
                                 onError = { exception ->
                                     isCapturing = false
@@ -344,6 +352,7 @@ private fun CameraUIOverlay(
         "CORAL_ID" -> "Scan Coral"
         "ALGAE_ID" -> "Scan Algae"
         "PEST_ID" -> "Scan Pests"
+        "GALLERY" -> "Take Photos"
         else -> "Complete Scan"
     }
 
@@ -379,7 +388,7 @@ private fun CameraUIOverlay(
                 color = Color.White,
                 fontWeight = FontWeight.SemiBold
             )
-            if (mode != "COMPREHENSIVE") {
+            if (mode != "COMPREHENSIVE" && mode != "GALLERY") {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "Specialized Mode",
@@ -467,7 +476,7 @@ private fun FilterButton(
     label: String
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
+    Box(
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
@@ -522,8 +531,8 @@ private fun PermissionRationaleContent(
                 .clip(CircleShape)
                 .background(GlassWhite)
                 .border(1.dp, GlassWhiteBorder, CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
+        contentAlignment = Alignment.Center
+    ) {
             Text(text = "📸", style = MaterialTheme.typography.displayMedium)
         }
         
@@ -555,7 +564,7 @@ private fun PermissionRationaleContent(
                 .height(50.dp)
         ) {
             Text("Grant Access", style = MaterialTheme.typography.titleMedium)
-        }
+    }
         
         Spacer(modifier = Modifier.height(12.dp))
         
@@ -694,20 +703,4 @@ private fun createImageFile(context: Context): File {
     val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(System.currentTimeMillis())
     val storageDir = File(context.filesDir, "reef_scans").apply { mkdirs() }
     return File(storageDir, "SCAN_${timestamp}.jpg")
-}
-
-// Duplicate helper used for Camera Screen logic if needed internally, 
-// though primarily moved to Home for Gallery. Kept for camera capture saving.
-private fun copyImageToInternalStorage(context: Context, sourceUri: Uri): Uri? {
-    return try {
-        val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(System.currentTimeMillis())
-        val storageDir = File(context.filesDir, "reef_scans").apply { mkdirs() }
-        val destFile = File(storageDir, "GALLERY_${timestamp}.jpg")
-        context.contentResolver.openInputStream(sourceUri)?.use { input ->
-            destFile.outputStream().use { output -> input.copyTo(output) }
-        }
-        Uri.fromFile(destFile)
-    } catch (e: Exception) {
-        null
-    }
 }

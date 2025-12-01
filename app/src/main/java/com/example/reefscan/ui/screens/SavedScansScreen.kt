@@ -115,10 +115,11 @@ import kotlin.math.roundToInt
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SavedScansScreen(
+    tankId: Long,
     onNavigateBack: () -> Unit,
     onNavigateToResults: (String) -> Unit,
     onNavigateToCamera: () -> Unit,
-    viewModel: SavedScansViewModel = viewModel(factory = SavedScansViewModelFactory(LocalContext.current))
+    viewModel: SavedScansViewModel = viewModel(factory = SavedScansViewModelFactory(LocalContext.current, tankId))
 ) {
     val allScans by viewModel.scans.collectAsState()
     var isVisible by remember { mutableStateOf(false) }
@@ -258,7 +259,7 @@ fun SavedScansScreen(
                 enter = fadeIn(tween(400, delayMillis = 200)),
                 exit = fadeOut(tween(200))
             ) {
-                EmptyState(onNavigateToCamera = onNavigateToCamera)
+                SavedScansEmptyState(onNavigateToCamera = onNavigateToCamera)
             }
             
             // Content - No scans for selected date
@@ -280,7 +281,7 @@ fun SavedScansScreen(
                 exit = fadeOut(tween(200))
             ) {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
@@ -341,7 +342,7 @@ private fun TopBar(
         
         Column(
             horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+    ) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleLarge,
@@ -417,7 +418,7 @@ private fun DateSelectorBar(
                 contentDescription = "Previous day",
                 tint = Color.White.copy(alpha = 0.7f)
             )
-        }
+    }
         
         // Date chips
         LazyRow(
@@ -467,7 +468,7 @@ private fun DateSelectorBar(
                                 .size(4.dp)
                                 .clip(CircleShape)
                                 .background(AquaBlue)
-                        )
+                            )
                     }
                 }
             }
@@ -844,7 +845,7 @@ private fun ItemCountBadge(
 }
 
 @Composable
-private fun EmptyState(onNavigateToCamera: () -> Unit) {
+private fun SavedScansEmptyState(onNavigateToCamera: () -> Unit) {
     var isVisible by remember { mutableStateOf(false) }
     val animatedAlpha = remember { Animatable(0f) }
     val animatedScale = remember { Animatable(0.8f) }
@@ -934,10 +935,11 @@ private fun EmptyState(onNavigateToCamera: () -> Unit) {
  * ViewModel for SavedScansScreen
  */
 class SavedScansViewModel(
-    private val scanRepository: ScanRepository
+    private val scanRepository: ScanRepository,
+    private val tankId: Long
 ) : ViewModel() {
     
-    val scans: StateFlow<List<ScanEntity>> = scanRepository.getAllScans()
+    val scans: StateFlow<List<ScanEntity>> = scanRepository.getScansForTank(tankId)
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -955,14 +957,16 @@ class SavedScansViewModel(
  * Factory for SavedScansViewModel
  */
 class SavedScansViewModelFactory(
-    private val context: Context
+    private val context: Context,
+    private val tankId: Long
 ) : ViewModelProvider.Factory {
     
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(SavedScansViewModel::class.java)) {
             return SavedScansViewModel(
-                scanRepository = ScanRepository(context)
+                scanRepository = ScanRepository(context),
+                tankId = tankId
             ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")

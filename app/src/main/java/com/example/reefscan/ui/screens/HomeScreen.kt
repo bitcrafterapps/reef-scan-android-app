@@ -26,11 +26,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.outlined.BugReport
-import androidx.compose.material.icons.outlined.Pets
+import androidx.compose.material.icons.outlined.SetMeal
 import androidx.compose.material.icons.outlined.Spa
 import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material3.Icon
@@ -39,8 +40,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,12 +56,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.airbnb.lottie.compose.LottieAnimation
 import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
 import com.example.reefscan.R
+import com.example.reefscan.data.local.ScanRepository
 import com.example.reefscan.ui.components.ScanButton
 import com.example.reefscan.ui.theme.AquaBlue
 import com.example.reefscan.ui.theme.AquaBlueDark
@@ -81,11 +85,24 @@ private const val TAG = "HomeScreen"
 
 @Composable
 fun HomeScreen(
+    tankId: Long,
     onNavigateToCamera: (String) -> Unit,
     onNavigateToSavedScans: () -> Unit,
-    onNavigateToLoading: (String, String) -> Unit
+    onNavigateToGallery: () -> Unit,
+    onNavigateToLoading: (String, String) -> Unit,
+    onNavigateBack: () -> Unit,
+    viewModel: HomeScreenViewModel? = null
 ) {
     val context = LocalContext.current
+    val finalViewModel = viewModel ?: viewModel(
+        factory = HomeScreenViewModelFactory(ScanRepository(context))
+    )
+
+    val tank by finalViewModel.tank.collectAsState()
+
+    LaunchedEffect(tankId) {
+        finalViewModel.loadTank(tankId)
+    }
     
     // Animation states
     val titleAlpha = remember { Animatable(0f) }
@@ -167,43 +184,53 @@ fun HomeScreen(
                     .fillMaxWidth()
                     .graphicsLayer { alpha = titleAlpha.value },
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(
-                        text = "ReefScan",
-                        style = MaterialTheme.typography.displaySmall.copy(
-                            fontSize = 32.sp,
-                            letterSpacing = (-0.5).sp
-                        ),
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "AI-Powered Reef Diagnostics",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = AquaBlue
+                IconButton(onClick = onNavigateBack) {
+                     Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color.White
                     )
                 }
-                
-                IconButton(
-                    onClick = onNavigateToSavedScans,
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(GlassWhite)
-                        .border(1.dp, GlassWhiteBorder, CircleShape)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.History,
-                        contentDescription = "Scan History",
-                        tint = Color.White,
-                        modifier = Modifier.size(22.dp)
-                    )
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Gallery Button
+                    IconButton(
+                        onClick = onNavigateToGallery,
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(GlassWhite)
+                            .border(1.dp, GlassWhiteBorder, CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.PhotoLibrary,
+                            contentDescription = "Gallery",
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+
+                    // History Button
+                    IconButton(
+                        onClick = onNavigateToSavedScans,
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(GlassWhite)
+                            .border(1.dp, GlassWhiteBorder, CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.History,
+                            contentDescription = "Scan History",
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(40.dp))
             
             // Hero Section
@@ -213,7 +240,7 @@ fun HomeScreen(
                     .graphicsLayer { alpha = titleAlpha.value }
             ) {
                 Text(
-                    text = "Instantly identify what's in your reef tank",
+                    text = tank?.name ?: "My Tank",
                     style = MaterialTheme.typography.headlineMedium.copy(
                         lineHeight = 36.sp,
                         letterSpacing = (-0.5).sp
@@ -223,7 +250,7 @@ fun HomeScreen(
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = "Point your camera at any fish, coral, invertebrate, or issue—ReefScan's AI will identify it and give you care recommendations.",
+                    text = "Identify fish, coral, or issues instantly. Tap a category or do a complete scan.",
                     style = MaterialTheme.typography.bodyLarge,
                     color = Color.White.copy(alpha = 0.7f),
                     lineHeight = 24.sp
@@ -232,7 +259,7 @@ fun HomeScreen(
             
             Spacer(modifier = Modifier.height(32.dp))
             
-            // Feature Pills (Now Clickable Buttons)
+            // Feature Pills
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -244,7 +271,7 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     FeaturePill(
-                        icon = Icons.Outlined.Pets,
+                        icon = Icons.Outlined.SetMeal,
                         label = "Fish ID",
                         color = CategoryFish,
                         modifier = Modifier.weight(1f),
@@ -291,26 +318,62 @@ fun HomeScreen(
                     },
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Primary CTA - Complete Scan Button
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally
+                // Main Actions Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    ScanButton(
-                        onClick = { onNavigateToCamera("COMPREHENSIVE") },
-                        modifier = Modifier.size(80.dp)
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "Complete Scan",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = Color.White,
-                        fontWeight = FontWeight.Medium
-                    )
+                    // Complete Scan Button
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        ScanButton(
+                            onClick = { onNavigateToCamera("COMPREHENSIVE") },
+                            modifier = Modifier.size(80.dp)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Scan",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = Color.White,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    // Take Pics Button (New)
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(80.dp)
+                                .clip(CircleShape)
+                                .background(GlassWhite)
+                                .border(2.dp, GlassWhiteBorder, CircleShape)
+                                .clickable { onNavigateToCamera("GALLERY") },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.PhotoCamera,
+                                contentDescription = "Take Photos",
+                                tint = Color.White,
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Add Pics",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = Color.White,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
                 
                 Spacer(modifier = Modifier.height(24.dp))
                 
-                // Secondary CTA - Gallery
+                // Secondary CTA - Gallery Import
                 Row(
                     modifier = Modifier
                         .clip(RoundedCornerShape(12.dp))

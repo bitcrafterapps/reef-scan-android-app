@@ -41,7 +41,7 @@ class LoadingViewModel(
     /**
      * Analyze an image using GPT-4 Vision
      */
-    fun analyzeImage(imageUri: Uri, mode: String = "COMPREHENSIVE") {
+    fun analyzeImage(imageUri: Uri, mode: String = "COMPREHENSIVE", tankId: Long) {
         lastImageUri = imageUri
         _state.value = LoadingState.Analyzing
         
@@ -52,7 +52,7 @@ class LoadingViewModel(
                 onSuccess = { scanResult ->
                     lastScanResult = scanResult
                     // Save temporarily and get ID
-                    val savedId = scanRepository.saveScan(scanResult, imageUri)
+                    val savedId = scanRepository.saveScan(scanResult, imageUri, tankId)
                     if (savedId != null) {
                         _state.value = LoadingState.Success(
                             scanId = savedId.toString(),

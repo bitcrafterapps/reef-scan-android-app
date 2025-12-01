@@ -9,8 +9,8 @@ import androidx.room.RoomDatabase
  * Room database for ReefScan app
  */
 @Database(
-    entities = [ScanEntity::class],
-    version = 2,
+    entities = [ScanEntity::class, TankEntity::class, GalleryImageEntity::class],
+    version = 4,
     exportSchema = false
 )
 abstract class ScanDatabase : RoomDatabase() {
@@ -19,6 +19,16 @@ abstract class ScanDatabase : RoomDatabase() {
      * Get the ScanDao instance
      */
     abstract fun scanDao(): ScanDao
+
+    /**
+     * Get the TankDao instance
+     */
+    abstract fun tankDao(): TankDao
+
+    /**
+     * Get the GalleryImageDao instance
+     */
+    abstract fun galleryImageDao(): GalleryImageDao
     
     companion object {
         private const val DATABASE_NAME = "reefscan_database"
@@ -44,4 +54,3 @@ abstract class ScanDatabase : RoomDatabase() {
         }
     }
 }
-

@@ -20,6 +20,12 @@ data class ScanEntity(
      * Path to the saved image file in internal storage
      */
     val imagePath: String,
+
+    /**
+     * ID of the tank this scan belongs to
+     * Default to -1 if not associated (migration handling)
+     */
+    val tankId: Long = -1,
     
     /**
      * Overall tank health assessment
@@ -158,7 +164,8 @@ data class ScanEntity(
          */
         fun fromScanResult(
             scanResult: ScanResult,
-            imagePath: String
+            imagePath: String,
+            tankId: Long
         ): ScanEntity {
             // Serialize recommendations
             val recommendationsType = Types.newParameterizedType(List::class.java, String::class.java)
@@ -175,6 +182,7 @@ data class ScanEntity(
             
             return ScanEntity(
                 imagePath = imagePath,
+                tankId = tankId,
                 tankHealth = scanResult.tankHealth,
                 summary = scanResult.summary,
                 identificationsJson = identificationsJson,

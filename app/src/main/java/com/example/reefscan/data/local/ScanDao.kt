@@ -26,6 +26,18 @@ interface ScanDao {
      */
     @Query("SELECT * FROM scans ORDER BY timestamp DESC LIMIT 10")
     fun getAllScans(): Flow<List<ScanEntity>>
+
+    /**
+     * Get all scans for a specific tank ordered by timestamp (newest first)
+     */
+    @Query("SELECT * FROM scans WHERE tankId = :tankId ORDER BY timestamp DESC")
+    fun getScansForTank(tankId: Long): Flow<List<ScanEntity>>
+
+    /**
+     * Get all scans for a specific tank as a List (suspend)
+     */
+    @Query("SELECT * FROM scans WHERE tankId = :tankId")
+    suspend fun getScansForTankList(tankId: Long): List<ScanEntity>
     
     /**
      * Get all scans as a one-time list (not Flow)
@@ -56,6 +68,12 @@ interface ScanDao {
      */
     @Query("DELETE FROM scans WHERE id = :scanId")
     suspend fun deleteScanById(scanId: Long)
+
+    /**
+     * Delete all scans for a specific tank
+     */
+    @Query("DELETE FROM scans WHERE tankId = :tankId")
+    suspend fun deleteScansByTankId(tankId: Long)
     
     /**
      * Delete oldest scans when count exceeds limit

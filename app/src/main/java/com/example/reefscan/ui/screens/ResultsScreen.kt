@@ -125,10 +125,10 @@ fun ResultsScreen(
     ) {
         when (val currentState = state) {
             is ResultsState.Loading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
                     CircularProgressIndicator(color = AquaBlue)
                 }
             }
@@ -699,9 +699,9 @@ private fun IdentificationItem(
                     tint = AquaBlue,
                     modifier = Modifier.size(20.dp)
                 )
-            }
-        }
-        
+    }
+}
+
         Spacer(modifier = Modifier.height(4.dp))
         
         // Category & Status chips

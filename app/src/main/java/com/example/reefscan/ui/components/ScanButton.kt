@@ -116,27 +116,27 @@ fun ScanButton(
                     spotColor = AquaBlue.copy(alpha = 0.5f)
                 )
                 .size(80.dp)
-                .clip(CircleShape)
-                .background(
+            .clip(CircleShape)
+            .background(
                     brush = Brush.linearGradient(
                         colors = listOf(
                             AquaBlueLight,
                             AquaBlue
                         )
-                    )
                 )
-                .clickable(
-                    interactionSource = interactionSource,
-                    indication = rememberRipple(color = Color.White),
-                    onClick = onClick
-                )
+            )
+            .clickable(
+                interactionSource = interactionSource,
+                indication = rememberRipple(color = Color.White),
+                onClick = onClick
+            )
                 // Inner white ring for "Camera Shutter" feel
                 .border(
                     width = 4.dp,
                     color = Color.White.copy(alpha = 0.2f),
                     shape = CircleShape
                 ),
-            contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center
         ) {
             // Icon
             Icon(

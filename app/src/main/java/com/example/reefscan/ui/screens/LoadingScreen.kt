@@ -33,18 +33,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import com.example.reefscan.ui.components.GlassmorphicCard
 import com.example.reefscan.ui.theme.AquaBlue
-import com.example.reefscan.ui.theme.AquaBlueDark
 import com.example.reefscan.ui.theme.CoralAccent
 import com.example.reefscan.ui.theme.DeepOcean
 import com.example.reefscan.ui.theme.DeepOceanDark
@@ -54,6 +50,7 @@ import com.example.reefscan.ui.theme.GlassWhite
 fun LoadingScreen(
     imageUri: String,
     mode: String,
+    tankId: Long,
     onNavigateToResults: (String) -> Unit,
     onNavigateBack: () -> Unit,
     viewModel: LoadingViewModel = viewModel(factory = LoadingViewModelFactory(LocalContext.current))
@@ -63,7 +60,7 @@ fun LoadingScreen(
     
     // Start analysis when screen loads
     LaunchedEffect(imageUri) {
-        viewModel.analyzeImage(uri, mode)
+        viewModel.analyzeImage(uri, mode, tankId)
     }
     
     // Handle navigation on success
@@ -91,7 +88,7 @@ fun LoadingScreen(
             AsyncImage(
                 model = uri,
                 contentDescription = "Analyzing Image",
-                modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
             
@@ -140,8 +137,8 @@ fun LoadingScreen(
                     is LoadingState.Analyzing -> {
                         // Modern Status Indicators
                         Box(
-                            contentAlignment = Alignment.Center
-                        ) {
+        contentAlignment = Alignment.Center
+    ) {
                             CircularProgressIndicator(
                                 color = AquaBlue.copy(alpha = 0.2f),
                                 modifier = Modifier.size(64.dp),
@@ -187,7 +184,7 @@ fun LoadingScreen(
                     is LoadingState.Error -> {
                         ErrorContent(
                             message = currentState.message,
-                            onRetry = { viewModel.analyzeImage(uri, mode) },
+                            onRetry = { viewModel.analyzeImage(uri, mode, tankId) },
                             onBack = onNavigateBack
                         )
                     }
