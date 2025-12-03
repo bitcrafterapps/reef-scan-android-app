@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Star
@@ -65,8 +66,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
+import com.example.reefscan.BuildConfig
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -76,9 +80,13 @@ import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
 import com.example.reefscan.R
+import com.example.reefscan.billing.UsageTracker
 import com.example.reefscan.data.local.ScanRepository
 import com.example.reefscan.ui.components.AddEditTankDialog
+import com.example.reefscan.ui.components.CompactUsageIndicator
 import com.example.reefscan.ui.components.ScanButton
+import com.example.reefscan.ui.components.UpgradeBanner
+import com.example.reefscan.ui.components.UpgradeBottomSheet
 import com.example.reefscan.ui.theme.AquaBlue
 import com.example.reefscan.ui.theme.AquaBlueDark
 import com.example.reefscan.ui.theme.CategoryAlgae
@@ -106,6 +114,7 @@ fun HomeScreen(
     onNavigateToGallery: () -> Unit,
     onNavigateToLoading: (String, String) -> Unit,
     onNavigateBack: () -> Unit,
+    onNavigateToSubscription: () -> Unit = {},
     viewModel: HomeScreenViewModel? = null
 ) {
     val context = LocalContext.current
@@ -114,6 +123,12 @@ fun HomeScreen(
     )
 
     val tank by finalViewModel.tank.collectAsState()
+    val scanCount by finalViewModel.scanCount.collectAsState()
+    val galleryCount by finalViewModel.galleryCount.collectAsState()
+    
+    // Usage tracking
+    val usageTracker = remember { UsageTracker.getInstance(context) }
+    val usageData by usageTracker.usageState.collectAsState()
     
     // Edit dialog state
     var showEditDialog by remember { mutableStateOf(false) }
@@ -122,6 +137,34 @@ fun HomeScreen(
     // Help sheet state
     var showHelpSheet by remember { mutableStateOf(false) }
     val helpSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    
+    // Upgrade banner dismiss state
+    var showUpgradeBanner by remember { mutableStateOf(true) }
+    
+    // Upgrade bottom sheet for when limit is reached
+    var showUpgradeSheet by remember { mutableStateOf(false) }
+    
+    // Helper function to check usage before navigating to scan
+    fun attemptScan(mode: String) {
+        if (usageTracker.canScan()) {
+            onNavigateToCamera(mode)
+        } else {
+            showUpgradeSheet = true
+        }
+    }
+    
+    // Helper function to check usage before gallery scan
+    fun attemptGalleryScan(imageUri: Uri?) {
+        if (imageUri == null) return
+        if (usageTracker.canScan()) {
+            val copiedUri = copyImageToInternalStorage(context, imageUri)
+            copiedUri?.let {
+                onNavigateToLoading(it.toString(), "COMPREHENSIVE")
+            }
+        } else {
+            showUpgradeSheet = true
+        }
+    }
 
     LaunchedEffect(tankId) {
         finalViewModel.loadTank(tankId)
@@ -137,12 +180,7 @@ fun HomeScreen(
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        uri?.let { selectedUri ->
-            val copiedUri = copyImageToInternalStorage(context, selectedUri)
-            copiedUri?.let {
-                onNavigateToLoading(it.toString(), "COMPREHENSIVE")
-            }
-        }
+        attemptGalleryScan(uri)
     }
     
     LaunchedEffect(Unit) {
@@ -217,7 +255,16 @@ fun HomeScreen(
                     )
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Usage Indicator (Compact)
+                    CompactUsageIndicator(
+                        usageData = usageData,
+                        onClick = onNavigateToSubscription
+                    )
+                    
                     // Edit Button
                     IconButton(
                         onClick = { showEditDialog = true },
@@ -235,38 +282,54 @@ fun HomeScreen(
                         )
                     }
 
-                    // Gallery Button
-                    IconButton(
-                        onClick = onNavigateToGallery,
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(GlassWhite)
-                            .border(1.dp, GlassWhiteBorder, CircleShape)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.PhotoLibrary,
-                            contentDescription = "Gallery",
-                            tint = Color.White,
-                            modifier = Modifier.size(22.dp)
-                        )
+                    // Gallery Button with badge
+                    Box {
+                        IconButton(
+                            onClick = onNavigateToGallery,
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(GlassWhite)
+                                .border(1.dp, GlassWhiteBorder, CircleShape)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.PhotoLibrary,
+                                contentDescription = "Gallery",
+                                tint = Color.White,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        if (galleryCount > 0) {
+                            CountBadge(
+                                count = galleryCount,
+                                modifier = Modifier.align(Alignment.TopEnd)
+                            )
+                        }
                     }
 
-                    // History Button
-                    IconButton(
-                        onClick = onNavigateToSavedScans,
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(GlassWhite)
-                            .border(1.dp, GlassWhiteBorder, CircleShape)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.History,
-                            contentDescription = "Scan History",
-                            tint = Color.White,
-                            modifier = Modifier.size(22.dp)
-                        )
+                    // History Button with badge
+                    Box {
+                        IconButton(
+                            onClick = onNavigateToSavedScans,
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(GlassWhite)
+                                .border(1.dp, GlassWhiteBorder, CircleShape)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.History,
+                                contentDescription = "Scan History",
+                                tint = Color.White,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        if (scanCount > 0) {
+                            CountBadge(
+                                count = scanCount,
+                                modifier = Modifier.align(Alignment.TopEnd)
+                            )
+                        }
                     }
 
                     // Help Button
@@ -288,7 +351,17 @@ fun HomeScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Upgrade Banner (when approaching limit)
+            if (showUpgradeBanner) {
+                UpgradeBanner(
+                    usageData = usageData,
+                    onUpgradeClick = onNavigateToSubscription,
+                    onDismiss = { showUpgradeBanner = false }
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
             
             // Hero Section
             Column(
@@ -321,44 +394,44 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .graphicsLayer { alpha = featuresAlpha.value },
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     FeaturePill(
                         icon = Icons.Outlined.SetMeal,
                         label = "Fish ID",
                         color = CategoryFish,
                         modifier = Modifier.weight(1f),
-                        onClick = { onNavigateToCamera("FISH_ID") }
+                        onClick = { attemptScan("FISH_ID") }
                     )
                     FeaturePill(
                         icon = Icons.Outlined.Spa,
                         label = "Coral ID",
                         color = CategorySPSCoral,
                         modifier = Modifier.weight(1f),
-                        onClick = { onNavigateToCamera("CORAL_ID") }
+                        onClick = { attemptScan("CORAL_ID") }
                     )
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     FeaturePill(
                         icon = Icons.Outlined.WaterDrop,
-                        label = "Algae Detection",
+                        label = "Algae",
                         color = CategoryAlgae,
                         modifier = Modifier.weight(1f),
-                        onClick = { onNavigateToCamera("ALGAE_ID") }
+                        onClick = { attemptScan("ALGAE_ID") }
                     )
                     FeaturePill(
                         icon = Icons.Outlined.BugReport,
                         label = "Pest Alerts",
                         color = CategoryPest,
                         modifier = Modifier.weight(1f),
-                        onClick = { onNavigateToCamera("PEST_ID") }
+                        onClick = { attemptScan("PEST_ID") }
                     )
                 }
             }
@@ -386,15 +459,15 @@ fun HomeScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         ScanButton(
-                            onClick = { onNavigateToCamera("COMPREHENSIVE") },
-                            modifier = Modifier.size(80.dp)
+                            onClick = { attemptScan("COMPREHENSIVE") },
+                            modifier = Modifier.size(100.dp)
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
                         Text(
                             text = "Scan",
-                            style = MaterialTheme.typography.titleSmall,
+                            style = MaterialTheme.typography.titleMedium,
                             color = Color.White,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
 
@@ -404,7 +477,7 @@ fun HomeScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(80.dp)
+                                .size(100.dp)
                                 .clip(CircleShape)
                                 .background(GlassWhite)
                                 .border(2.dp, GlassWhiteBorder, CircleShape)
@@ -412,59 +485,22 @@ fun HomeScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Filled.PhotoCamera,
-                                contentDescription = "Take Photos",
+                                imageVector = Icons.Filled.Image,
+                                contentDescription = "Add Photos",
                                 tint = Color.White,
-                                modifier = Modifier.size(32.dp)
+                                modifier = Modifier.size(44.dp)
                             )
                         }
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
                         Text(
                             text = "Add Pics",
-                            style = MaterialTheme.typography.titleSmall,
+                            style = MaterialTheme.typography.titleMedium,
                             color = Color.White,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
                 }
                 
-                Spacer(modifier = Modifier.height(24.dp))
-                
-                // Secondary CTA - Gallery Import
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(GlassWhite)
-                        .border(1.dp, GlassWhiteBorder, RoundedCornerShape(12.dp))
-                        .clickable { galleryLauncher.launch("image/*") }
-                        .padding(horizontal = 20.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.PhotoLibrary,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = "Choose from Gallery",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = Color.White,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // Tagline
-                Text(
-                    text = "Works offline • Results in seconds",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.5f),
-                    textAlign = TextAlign.Center
-                )
             }
         }
 
@@ -540,6 +576,18 @@ fun HomeScreen(
                 HelpContent()
             }
         }
+        
+        // Upgrade Bottom Sheet - shown when scan limit is reached
+        if (showUpgradeSheet) {
+            UpgradeBottomSheet(
+                usageData = usageData,
+                onDismiss = { showUpgradeSheet = false },
+                onUpgradeClick = { _ ->
+                    showUpgradeSheet = false
+                    onNavigateToSubscription()
+                }
+            )
+        }
     }
 }
 
@@ -553,47 +601,76 @@ private fun FeaturePill(
 ) {
     Row(
         modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
+            .height(72.dp)
+            .clip(RoundedCornerShape(16.dp))
             .background(
                 brush = Brush.horizontalGradient(
                     colors = listOf(
-                        color.copy(alpha = 0.15f),
-                        color.copy(alpha = 0.08f)
+                        color.copy(alpha = 0.20f),
+                        color.copy(alpha = 0.12f)
                     )
                 )
             )
             .border(
-                width = 1.dp,
+                width = 1.5.dp,
                 brush = Brush.horizontalGradient(
                     colors = listOf(
-                        color.copy(alpha = 0.4f),
-                        color.copy(alpha = 0.15f)
+                        color.copy(alpha = 0.55f),
+                        color.copy(alpha = 0.25f)
                     )
                 ),
-                shape = RoundedCornerShape(10.dp)
+                shape = RoundedCornerShape(16.dp)
             )
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
             tint = color,
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier.size(28.dp)
         )
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = Color.White.copy(alpha = 0.9f),
-            fontWeight = FontWeight.Medium
+            style = MaterialTheme.typography.titleMedium,
+            color = Color.White,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
+@Composable
+private fun CountBadge(
+    count: Int,
+    modifier: Modifier = Modifier
+) {
+    val displayCount = if (count > 99) "99+" else count.toString()
+    
+    Box(
+        modifier = modifier
+            .size(20.dp)
+            .clip(CircleShape)
+            .background(AquaBlue),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = displayCount,
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            fontSize = if (count > 99) 8.sp else 10.sp
         )
     }
 }
 
 @Composable
 private fun HelpContent() {
+    val uriHandler = LocalUriHandler.current
+    val appVersion = BuildConfig.VERSION_NAME
+    
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -725,6 +802,39 @@ private fun HelpContent() {
                     lineHeight = 20.sp
                 )
             }
+        }
+        
+        // Footer
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // App Version
+            Text(
+                text = "Version $appVersion",
+                style = MaterialTheme.typography.labelMedium,
+                color = AquaBlue,
+                fontWeight = FontWeight.Medium,
+                textDecoration = TextDecoration.Underline,
+                modifier = Modifier.clickable {
+                    uriHandler.openUri("https://reef-scan.vercel.app")
+                }
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Powered by Bitcraft
+            Text(
+                text = "Powered by Bitcraft",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.5f),
+                textDecoration = TextDecoration.Underline,
+                modifier = Modifier.clickable {
+                    uriHandler.openUri("https://www.bitcraft-apps.com")
+                }
+            )
         }
     }
 }

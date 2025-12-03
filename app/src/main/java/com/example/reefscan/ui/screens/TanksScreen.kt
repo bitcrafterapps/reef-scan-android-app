@@ -77,6 +77,8 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
+import com.example.reefscan.billing.SubscriptionTier
+import com.example.reefscan.billing.UsageTracker
 import com.example.reefscan.data.local.ScanRepository
 import com.example.reefscan.data.local.TankEntity
 import com.example.reefscan.ui.components.AddEditTankDialog
@@ -94,15 +96,26 @@ import java.util.Locale
 @Composable
 fun TanksScreen(
     onTankSelected: (Long) -> Unit,
+    onNavigateToSubscription: () -> Unit = {},
     viewModel: TanksViewModel? = null
 ) {
     val context = LocalContext.current
     val finalViewModel = viewModel ?: viewModel(factory = TanksViewModelFactory(ScanRepository(context)))
+    
+    // Get usage tracker for tier info
+    val usageTracker = remember { UsageTracker(context) }
+    val currentTier = usageTracker.getCurrentTier()
 
     val tanks by finalViewModel.tanks.collectAsState()
     var showAddEditDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
+    var showUpgradeDialog by remember { mutableStateOf(false) }
     var tankToEdit by remember { mutableStateOf<TankEntity?>(null) }
+    
+    // Check if user can add more tanks
+    fun canAddTank(): Boolean {
+        return tanks.size < currentTier.tankLimit
+    }
 
     Box(
         modifier = Modifier
@@ -123,8 +136,12 @@ fun TanksScreen(
             floatingActionButton = {
                 FloatingActionButton(
                     onClick = {
-                        tankToEdit = null
-                        showAddEditDialog = true
+                        if (canAddTank()) {
+                            tankToEdit = null
+                            showAddEditDialog = true
+                        } else {
+                            showUpgradeDialog = true
+                        }
                     },
                     containerColor = AquaBlue,
                     contentColor = DeepOceanDark
@@ -156,10 +173,17 @@ fun TanksScreen(
 
                 if (tanks.isEmpty()) {
                     TanksEmptyState(onAddClick = {
-                        tankToEdit = null
-                        showAddEditDialog = true
+                        if (canAddTank()) {
+                            tankToEdit = null
+                            showAddEditDialog = true
+                        } else {
+                            showUpgradeDialog = true
+                        }
                     })
                 } else {
+                    // Only show placeholder cards if user can add more tanks (Pro users)
+                    val placeholderCount = if (canAddTank()) (3 - tanks.size).coerceIn(1, 3) else 0
+                    
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(1),
                         contentPadding = PaddingValues(bottom = 80.dp),
@@ -173,6 +197,20 @@ fun TanksScreen(
                                 onEditClick = {
                                     tankToEdit = tank
                                     showAddEditDialog = true
+                                }
+                            )
+                        }
+                        
+                        // Add placeholder "Add Tank" cards (only for Pro users)
+                        items(placeholderCount) {
+                            AddTankPlaceholderCard(
+                                onClick = {
+                                    if (canAddTank()) {
+                                        tankToEdit = null
+                                        showAddEditDialog = true
+                                    } else {
+                                        showUpgradeDialog = true
+                                    }
                                 }
                             )
                         }
@@ -230,6 +268,41 @@ fun TanksScreen(
                 dismissButton = {
                     TextButton(onClick = { showDeleteConfirmation = false }) {
                         Text("Cancel")
+                    }
+                },
+                containerColor = DeepOcean,
+                titleContentColor = Color.White,
+                textContentColor = Color.White.copy(alpha = 0.8f)
+            )
+        }
+        
+        // Upgrade Dialog - shown when free user tries to add more tanks
+        if (showUpgradeDialog) {
+            AlertDialog(
+                onDismissRequest = { showUpgradeDialog = false },
+                title = { 
+                    Text(
+                        "Upgrade to Pro",
+                        fontWeight = FontWeight.Bold
+                    ) 
+                },
+                text = { 
+                    Text("Free accounts are limited to 1 tank. Upgrade to Pro for unlimited tank profiles and 20 scans per day!") 
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showUpgradeDialog = false
+                            onNavigateToSubscription()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = AquaBlue)
+                    ) {
+                        Text("Upgrade", color = DeepOceanDark)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showUpgradeDialog = false }) {
+                        Text("Maybe Later", color = Color.White.copy(alpha = 0.7f))
                     }
                 },
                 containerColor = DeepOcean,
@@ -384,6 +457,61 @@ fun TanksEmptyState(onAddClick: () -> Unit) {
             shape = RoundedCornerShape(24.dp)
         ) {
             Text(text = "Add Tank", color = DeepOceanDark)
+        }
+    }
+}
+
+@Composable
+fun AddTankPlaceholderCard(onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(120.dp)
+            .clickable(onClick = onClick)
+            .border(
+                width = 2.dp,
+                color = AquaBlue.copy(alpha = 0.3f),
+                shape = RoundedCornerShape(16.dp)
+            ),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = GlassWhite.copy(alpha = 0.05f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(AquaBlue.copy(alpha = 0.15f))
+                        .border(
+                            width = 1.5.dp,
+                            color = AquaBlue.copy(alpha = 0.4f),
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = null,
+                        tint = AquaBlue.copy(alpha = 0.8f),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "Add Tank",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = AquaBlue.copy(alpha = 0.7f),
+                    fontWeight = FontWeight.Medium
+                )
+            }
         }
     }
 }

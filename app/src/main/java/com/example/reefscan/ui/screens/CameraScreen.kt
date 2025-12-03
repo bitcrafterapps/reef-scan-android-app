@@ -38,6 +38,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -117,6 +118,21 @@ fun CameraScreen(
     
     // Blue light filter state
     var activeFilter by remember { mutableStateOf(FilterType.NONE) }
+    
+    // Gallery picker launcher
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let { selectedUri ->
+            if (mode == "GALLERY") {
+                // For gallery mode, save to tank gallery
+                onGalleryImageCaptured(selectedUri)
+            } else {
+                // For scan modes, navigate to loading with selected image
+                onNavigateToLoading(selectedUri.toString())
+            }
+        }
+    }
     
     // Request permission on first launch
     LaunchedEffect(Unit) {
@@ -251,6 +267,9 @@ fun CameraScreen(
                             )
                         }
                     },
+                    onGalleryPick = {
+                        galleryLauncher.launch("image/*")
+                    },
                     activeFilter = activeFilter,
                     onFilterSelected = { filter ->
                         activeFilter = if (activeFilter == filter) FilterType.NONE else filter
@@ -343,6 +362,7 @@ private fun CameraUIOverlay(
     mode: String,
     onClose: () -> Unit,
     onCapture: () -> Unit,
+    onGalleryPick: () -> Unit,
     activeFilter: FilterType,
     onFilterSelected: (FilterType) -> Unit
 ) {
@@ -424,16 +444,41 @@ private fun CameraUIOverlay(
             )
         }
 
-        // Bottom Center Shutter Button
-        Box(
+        // Bottom Controls Row
+        Row(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 60.dp)
+                .fillMaxWidth()
+                .padding(bottom = 60.dp, start = 48.dp, end = 48.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            // Gallery Button (Left)
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.4f))
+                    .border(1.dp, GlassWhiteBorder, CircleShape)
+                    .clickable { onGalleryPick() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.PhotoLibrary,
+                    contentDescription = "Choose from Gallery",
+                    tint = Color.White,
+                    modifier = Modifier.size(26.dp)
+                )
+            }
+            
+            // Shutter Button (Center)
             ScanButton(
                 onClick = onCapture,
                 modifier = Modifier.size(88.dp)
             )
+            
+            // Spacer for balance (Right) - same size as gallery button
+            Spacer(modifier = Modifier.size(56.dp))
         }
         
         // Filter indicator when active

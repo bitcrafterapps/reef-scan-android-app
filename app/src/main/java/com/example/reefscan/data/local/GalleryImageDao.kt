@@ -21,5 +21,8 @@ interface GalleryImageDao {
 
     @Query("SELECT * FROM gallery_images WHERE tankId = :tankId")
     suspend fun getImagesForTank(tankId: Long): List<GalleryImageEntity>
+    
+    @Query("SELECT COUNT(*) FROM gallery_images WHERE tankId = :tankId")
+    suspend fun getImageCountForTank(tankId: Long): Int
 }
 

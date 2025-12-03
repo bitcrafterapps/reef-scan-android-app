@@ -1,10 +1,13 @@
 package com.example.reefscan.ui.components
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -86,7 +89,24 @@ fun AddEditTankDialog(
     var tempUri by remember { mutableStateOf<Uri?>(null) }
     val context = LocalContext.current
 
-    val manufacturers = listOf("Red Sea", "Waterbox", "Innovative Marine", "Cade", "Custom", "Other")
+    val manufacturers = listOf(
+        "Red Sea",
+        "Waterbox", 
+        "Innovative Marine",
+        "Cade",
+        "Aqueon",
+        "Fluval",
+        "Coralife",
+        "JBJ",
+        "Lifegard",
+        "Marineland",
+        "Neptune Systems",
+        "Reef Octopus",
+        "SCA",
+        "Trigger Systems",
+        "Custom Built",
+        "Other"
+    )
 
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -101,6 +121,48 @@ fun AddEditTankDialog(
     ) { success ->
         if (success && tempUri != null) {
             selectedImageUri = tempUri
+        }
+    }
+    
+    // Function to launch camera after permission is granted
+    fun launchCamera() {
+        try {
+            val imageFile = createImageFile(context)
+            val uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                imageFile
+            )
+            tempUri = uri
+            cameraLauncher.launch(uri)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+    
+    // Permission launcher for camera
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            launchCamera()
+        }
+    }
+    
+    // Helper function to check permission and launch camera
+    fun requestCameraAndLaunch() {
+        when {
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.CAMERA
+            ) == PackageManager.PERMISSION_GRANTED -> {
+                // Permission already granted, launch camera
+                launchCamera()
+            }
+            else -> {
+                // Request permission
+                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+            }
         }
     }
 
@@ -188,15 +250,7 @@ fun AddEditTankDialog(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(8.dp))
-                                    .clickable {
-                                        val uri = FileProvider.getUriForFile(
-                                            context,
-                                            "${context.packageName}.fileprovider",
-                                            createImageFile(context)
-                                        )
-                                        tempUri = uri
-                                        cameraLauncher.launch(uri)
-                                    }
+                                    .clickable { requestCameraAndLaunch() }
                                     .padding(8.dp)
                             ) {
                                 Icon(
@@ -235,13 +289,23 @@ fun AddEditTankDialog(
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(20.dp))
+                
+                // Section Label
+                Text(
+                    text = "TANK DETAILS",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AquaBlue.copy(alpha = 0.8f),
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
 
-                // Fields
+                // Tank Name Field
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Tank Name") },
+                    label = { Text("Tank Name *") },
+                    placeholder = { Text("e.g., Living Room Reef", color = Color.White.copy(alpha = 0.4f)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     colors = TextFieldDefaults.colors(
@@ -255,12 +319,82 @@ fun AddEditTankDialog(
                         unfocusedIndicatorColor = GlassWhiteBorder
                     )
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Size Field
+                OutlinedTextField(
+                    value = size,
+                    onValueChange = { size = it },
+                    label = { Text("Tank Size") },
+                    placeholder = { Text("e.g., 75 gallon, 120L", color = Color.White.copy(alpha = 0.4f)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                    colors = TextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedLabelColor = AquaBlue,
+                        unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
+                        focusedIndicatorColor = AquaBlue,
+                        unfocusedIndicatorColor = GlassWhiteBorder
+                    )
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Manufacturer Dropdown (Full Width)
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = !expanded },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    OutlinedTextField(
+                        value = manufacturer,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Manufacturer") },
+                        placeholder = { Text("Select manufacturer", color = Color.White.copy(alpha = 0.4f)) },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(),
+                        colors = TextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedLabelColor = AquaBlue,
+                            unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
+                            focusedIndicatorColor = AquaBlue,
+                            unfocusedIndicatorColor = GlassWhiteBorder
+                        )
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        manufacturers.forEach { item ->
+                            DropdownMenuItem(
+                                text = { Text(text = item) },
+                                onClick = {
+                                    manufacturer = item
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
 
+                // Description Field (Multi-line)
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
-                    label = { Text("Description") },
+                    label = { Text("Notes") },
+                    placeholder = { Text("Optional notes about your tank...", color = Color.White.copy(alpha = 0.4f)) },
+                    minLines = 2,
+                    maxLines = 4,
                     modifier = Modifier.fillMaxWidth(),
                     colors = TextFieldDefaults.colors(
                         focusedTextColor = Color.White,
@@ -273,70 +407,8 @@ fun AddEditTankDialog(
                         unfocusedIndicatorColor = GlassWhiteBorder
                     )
                 )
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(
-                        value = size,
-                        onValueChange = { size = it },
-                        label = { Text("Size") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                        colors = TextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            focusedLabelColor = AquaBlue,
-                            unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
-                            focusedIndicatorColor = AquaBlue,
-                            unfocusedIndicatorColor = GlassWhiteBorder
-                        )
-                    )
-                    
-                    // Manufacturer Dropdown
-                    ExposedDropdownMenuBox(
-                        expanded = expanded,
-                        onExpandedChange = { expanded = !expanded },
-                        modifier = Modifier.weight(1.5f)
-                    ) {
-                        OutlinedTextField(
-                            value = manufacturer,
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Manufacturer") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                            modifier = Modifier.menuAnchor(),
-                            colors = TextFieldDefaults.colors(
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                focusedLabelColor = AquaBlue,
-                                unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
-                                focusedIndicatorColor = AquaBlue,
-                                unfocusedIndicatorColor = GlassWhiteBorder
-                            )
-                        )
-                        ExposedDropdownMenu(
-                            expanded = expanded,
-                            onDismissRequest = { expanded = false }
-                        ) {
-                            manufacturers.forEach { item ->
-                                DropdownMenuItem(
-                                    text = { Text(text = item) },
-                                    onClick = {
-                                        manufacturer = item
-                                        expanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(28.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -365,9 +437,18 @@ fun AddEditTankDialog(
 private fun createImageFile(context: Context): File {
     val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
     val storageDir = context.getExternalFilesDir("tank_images")
+    
+    // Ensure the directory exists
+    if (storageDir != null && !storageDir.exists()) {
+        storageDir.mkdirs()
+    }
+    
+    // Fall back to internal storage if external is not available
+    val actualDir = storageDir ?: context.filesDir
+    
     return File.createTempFile(
         "JPEG_${timeStamp}_", /* prefix */
         ".jpg", /* suffix */
-        storageDir /* directory */
+        actualDir /* directory */
     )
 }

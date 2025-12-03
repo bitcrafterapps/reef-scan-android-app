@@ -1,6 +1,7 @@
 package com.example.reefscan
 
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
@@ -12,12 +13,21 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
 import androidx.navigation.compose.rememberNavController
+import com.example.reefscan.billing.SubscriptionManager
 import com.example.reefscan.navigation.ReefScanNavGraph
 import com.example.reefscan.ui.theme.ReefScanTheme
 
 class MainActivity : ComponentActivity() {
+    
+    companion object {
+        private const val TAG = "MainActivity"
+    }
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Initialize RevenueCat for subscription management
+        initializeSubscriptions()
         
         // Enable edge-to-edge display
         enableEdgeToEdge()
@@ -64,6 +74,37 @@ class MainActivity : ComponentActivity() {
                 or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
                 or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
             )
+        }
+    }
+    
+    /**
+     * Initialize RevenueCat subscription management
+     * Uses the API key from BuildConfig (set in local.properties)
+     */
+    private fun initializeSubscriptions() {
+        try {
+            val apiKey = getRevenueCatApiKey()
+            if (apiKey.isNotBlank()) {
+                Log.d(TAG, "Initializing RevenueCat with configured API key")
+            } else {
+                Log.w(TAG, "RevenueCat API key not configured - running in demo mode")
+            }
+            
+            val subscriptionManager = SubscriptionManager.getInstance(this)
+            subscriptionManager.initialize(apiKey)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize subscriptions", e)
+        }
+    }
+    
+    /**
+     * Get the RevenueCat API key from BuildConfig
+     */
+    private fun getRevenueCatApiKey(): String {
+        return try {
+            BuildConfig::class.java.getField("REVENUECAT_API_KEY").get(null) as? String ?: ""
+        } catch (e: Exception) {
+            ""
         }
     }
 }

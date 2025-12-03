@@ -58,6 +58,12 @@ interface ScanDao {
     suspend fun getScanCount(): Int
     
     /**
+     * Get the count of scans for a specific tank
+     */
+    @Query("SELECT COUNT(*) FROM scans WHERE tankId = :tankId")
+    suspend fun getScanCountForTank(tankId: Long): Int
+    
+    /**
      * Delete a specific scan
      */
     @Delete

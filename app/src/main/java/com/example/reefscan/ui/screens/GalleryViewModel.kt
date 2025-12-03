@@ -29,11 +29,16 @@ class GalleryViewModel(
     // List of GalleryImages for a specific date
     private val _images = MutableStateFlow<List<GalleryImage>>(emptyList())
     val images: StateFlow<List<GalleryImage>> = _images.asStateFlow()
+    
+    // All images for this tank
+    private val _allImages = MutableStateFlow<List<GalleryImage>>(emptyList())
+    val allImages: StateFlow<List<GalleryImage>> = _allImages.asStateFlow()
 
     private var currentDateString: String? = null
 
     init {
         loadTank()
+        loadAllImages()
     }
 
     fun loadTank() {
@@ -45,6 +50,12 @@ class GalleryViewModel(
     fun loadFolders() {
         viewModelScope.launch {
             _folders.value = repository.getGalleryFolders(tankId)
+        }
+    }
+    
+    fun loadAllImages() {
+        viewModelScope.launch {
+            _allImages.value = repository.getAllGalleryImages(tankId)
         }
     }
 
@@ -61,6 +72,7 @@ class GalleryViewModel(
                 repository.saveGalleryImage(tankId, uri)
             }
             loadFolders() // Refresh folders
+            loadAllImages() // Refresh all images
             currentDateString?.let { loadImagesForDate(it) } // Refresh images if viewing date
         }
     }
@@ -69,6 +81,7 @@ class GalleryViewModel(
         viewModelScope.launch {
             repository.setGalleryImageRating(image.path, rating)
             // Update local state optimistically or reload
+            loadAllImages()
             currentDateString?.let { loadImagesForDate(it) }
         }
     }
@@ -77,6 +90,7 @@ class GalleryViewModel(
         viewModelScope.launch {
             repository.deleteGalleryImage(image.path)
             loadFolders() // Refresh folders in case it was the last image
+            loadAllImages() // Refresh all images
             currentDateString?.let { loadImagesForDate(it) }
         }
     }

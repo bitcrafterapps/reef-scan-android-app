@@ -16,10 +16,25 @@ class HomeScreenViewModel(
 
     private val _tank = MutableStateFlow<TankEntity?>(null)
     val tank: StateFlow<TankEntity?> = _tank
+    
+    private val _scanCount = MutableStateFlow(0)
+    val scanCount: StateFlow<Int> = _scanCount
+    
+    private val _galleryCount = MutableStateFlow(0)
+    val galleryCount: StateFlow<Int> = _galleryCount
 
     fun loadTank(tankId: Long) {
         viewModelScope.launch {
             _tank.value = repository.getTankById(tankId)
+            _scanCount.value = repository.getScanCountForTank(tankId)
+            _galleryCount.value = repository.getGalleryCountForTank(tankId)
+        }
+    }
+    
+    fun refreshCounts(tankId: Long) {
+        viewModelScope.launch {
+            _scanCount.value = repository.getScanCountForTank(tankId)
+            _galleryCount.value = repository.getGalleryCountForTank(tankId)
         }
     }
 

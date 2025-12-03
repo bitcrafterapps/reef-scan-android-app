@@ -219,7 +219,9 @@ fun SavedScansScreen(
             )
     ) {
         Column(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 24.dp)
         ) {
             // Top bar with animation
             AnimatedVisibility(

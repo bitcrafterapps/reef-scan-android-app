@@ -27,8 +27,11 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
-        // Add OpenAI API key to BuildConfig
-        buildConfigField("String", "OPENAI_API_KEY", "\"${localProperties.getProperty("OPENAI_API_KEY", "")}\"")
+        // Add Gemini API key to BuildConfig (switched from OpenAI for 94% cost savings)
+        buildConfigField("String", "GEMINI_API_KEY", "\"${localProperties.getProperty("GEMINI_API_KEY", "")}\"")
+        
+        // Add RevenueCat API key for subscription management
+        buildConfigField("String", "REVENUECAT_API_KEY", "\"${localProperties.getProperty("REVENUECAT_API_KEY", "")}\"")
     }
 
     buildTypes {
@@ -40,7 +43,8 @@ android {
                 "proguard-rules.pro"
             )
             // Ensure API key is available in release builds
-            buildConfigField("String", "OPENAI_API_KEY", "\"${localProperties.getProperty("OPENAI_API_KEY", "")}\"")
+            buildConfigField("String", "GEMINI_API_KEY", "\"${localProperties.getProperty("GEMINI_API_KEY", "")}\"")
+            buildConfigField("String", "REVENUECAT_API_KEY", "\"${localProperties.getProperty("REVENUECAT_API_KEY", "")}\"")
         }
         debug {
             isMinifyEnabled = false
@@ -127,6 +131,12 @@ dependencies {
     
     // ViewModel Compose
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    
+    // RevenueCat for subscription management
+    implementation(libs.revenuecat.purchases)
+    
+    // DataStore for preferences
+    implementation(libs.datastore.preferences)
 
     // Testing
     testImplementation(libs.junit)

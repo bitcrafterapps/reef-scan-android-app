@@ -99,6 +99,20 @@ class ScanRepository(context: Context) {
     suspend fun getScanCount(): Int = withContext(Dispatchers.IO) {
         scanDao.getScanCount()
     }
+    
+    /**
+     * Get the count of scans for a specific tank
+     */
+    suspend fun getScanCountForTank(tankId: Long): Int = withContext(Dispatchers.IO) {
+        scanDao.getScanCountForTank(tankId)
+    }
+    
+    /**
+     * Get the count of gallery images for a specific tank
+     */
+    suspend fun getGalleryCountForTank(tankId: Long): Int = withContext(Dispatchers.IO) {
+        galleryImageDao.getImageCountForTank(tankId)
+    }
 
     // ==================== Tank Operations ====================
 
@@ -283,6 +297,34 @@ class ScanRepository(context: Context) {
             val rating = entity?.rating ?: 0
             GalleryImage(file.absolutePath, file.lastModified(), rating)
         }
+    }
+    
+    /**
+     * Get all gallery images for a tank (across all dates)
+     */
+    suspend fun getAllGalleryImages(tankId: Long): List<GalleryImage> = withContext(Dispatchers.IO) {
+        val tankDir = File(appContext.filesDir, "tank_gallery/$tankId")
+        if (!tankDir.exists()) {
+            return@withContext emptyList()
+        }
+        
+        val allImages = mutableListOf<GalleryImage>()
+        
+        // Iterate through all date directories
+        tankDir.listFiles()?.filter { it.isDirectory }?.forEach { dateDir ->
+            val files = dateDir.listFiles()
+                ?.filter { it.isFile && (it.name.endsWith(".jpg") || it.name.endsWith(".png")) }
+                ?: emptyList()
+            
+            files.forEach { file ->
+                val relativePath = getRelativePath(file)
+                val entity = galleryImageDao.getImage(relativePath)
+                val rating = entity?.rating ?: 0
+                allImages.add(GalleryImage(file.absolutePath, file.lastModified(), rating))
+            }
+        }
+        
+        allImages.sortedByDescending { it.timestamp }
     }
     
     private fun getRelativePath(file: File): String {

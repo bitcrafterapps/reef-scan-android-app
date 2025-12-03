@@ -21,6 +21,7 @@ import com.example.reefscan.ui.screens.LoadingScreen
 import com.example.reefscan.ui.screens.ResultsScreen
 import com.example.reefscan.ui.screens.SavedScansScreen
 import com.example.reefscan.ui.screens.SplashScreen
+import com.example.reefscan.ui.screens.SubscriptionScreen
 import com.example.reefscan.ui.screens.TankGalleryScreen
 import com.example.reefscan.ui.screens.TanksScreen
 import kotlinx.coroutines.launch
@@ -86,6 +87,9 @@ fun ReefScanNavGraph(
             TanksScreen(
                 onTankSelected = { tankId ->
                     navController.navigate(Screen.Home.createRoute(tankId))
+                },
+                onNavigateToSubscription = {
+                    navController.navigate(Screen.Subscription.route)
                 }
             )
         }
@@ -115,6 +119,9 @@ fun ReefScanNavGraph(
                 },
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onNavigateToSubscription = {
+                    navController.navigate(Screen.Subscription.route)
                 }
             )
         }
@@ -193,6 +200,9 @@ fun ReefScanNavGraph(
                 },
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onNavigateToSubscription = {
+                    navController.navigate(Screen.Subscription.route)
                 }
             )
         }
@@ -278,6 +288,15 @@ fun ReefScanNavGraph(
                 tankId = tankId,
                 dateString = dateString,
                 onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        
+        // Subscription Screen
+        composable(route = Screen.Subscription.route) {
+            SubscriptionScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
             )
         }
     }

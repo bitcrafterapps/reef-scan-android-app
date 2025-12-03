@@ -1,12 +1,14 @@
 package com.example.reefscan.ui.screens
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,19 +23,21 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PhotoLibrary
@@ -42,6 +46,10 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDefaults
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -50,10 +58,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import android.content.Intent
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -66,7 +75,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -75,7 +84,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.example.reefscan.data.model.GalleryImage
-import com.example.reefscan.ui.components.AddEditTankDialog
 import com.example.reefscan.ui.components.RatingBar
 import com.example.reefscan.ui.theme.AquaBlue
 import com.example.reefscan.ui.theme.AquaBlueDark
@@ -84,23 +92,58 @@ import com.example.reefscan.ui.theme.DeepOceanDark
 import com.example.reefscan.ui.theme.GlassWhite
 import java.io.File
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
+private fun getGalleryTodayStart(): Long {
+    val calendar = Calendar.getInstance()
+    calendar.set(Calendar.HOUR_OF_DAY, 0)
+    calendar.set(Calendar.MINUTE, 0)
+    calendar.set(Calendar.SECOND, 0)
+    calendar.set(Calendar.MILLISECOND, 0)
+    return calendar.timeInMillis
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TankGalleryScreen(
     tankId: Long,
     onNavigateBack: () -> Unit,
-    onNavigateToDateGallery: (String) -> Unit,
+    onNavigateToDateGallery: (String) -> Unit = {}, // Keep for backwards compat but unused
     viewModel: GalleryViewModel = viewModel(factory = GalleryViewModelFactory(LocalContext.current, tankId))
 ) {
-    val folders by viewModel.folders.collectAsState()
+    val allImages by viewModel.allImages.collectAsState()
     val tank by viewModel.tank.collectAsState()
-    var showAddDialog by remember { mutableStateOf(false) }
-    var showEditDialog by remember { mutableStateOf(false) }
-    var showDeleteConfirmation by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    
+    // Date filter state - default to today
+    var selectedDate by remember { mutableStateOf(getGalleryTodayStart()) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    
+    // Filter images by selected date
+    val filteredImages by remember(allImages, selectedDate) {
+        derivedStateOf {
+            val dayStart = selectedDate
+            val dayEnd = dayStart + 24 * 60 * 60 * 1000 // Add 24 hours
+            allImages.filter { image ->
+                image.timestamp in dayStart until dayEnd
+            }
+        }
+    }
+    
+    val hasAnyImages = allImages.isNotEmpty()
+    
+    // Add photo states
+    var showAddDialog by remember { mutableStateOf(false) }
     var tempUri by remember { mutableStateOf<Uri?>(null) }
+    
+    // Full screen viewer
+    var showFullScreen by remember { mutableStateOf(false) }
+    var initialIndex by remember { mutableStateOf(0) }
+    
+    // Delete confirmation
+    var imageToDelete by remember { mutableStateOf<GalleryImage?>(null) }
 
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
@@ -119,9 +162,60 @@ fun TankGalleryScreen(
         }
         showAddDialog = false
     }
-
-    LaunchedEffect(tankId) {
-        viewModel.loadFolders()
+    
+    // Date Picker Dialog
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = selectedDate
+        )
+        
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            val calendar = Calendar.getInstance()
+                            calendar.timeInMillis = millis
+                            calendar.set(Calendar.HOUR_OF_DAY, 0)
+                            calendar.set(Calendar.MINUTE, 0)
+                            calendar.set(Calendar.SECOND, 0)
+                            calendar.set(Calendar.MILLISECOND, 0)
+                            selectedDate = calendar.timeInMillis
+                        }
+                        showDatePicker = false
+                    }
+                ) {
+                    Text("Select", color = AquaBlue)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Cancel", color = Color.White.copy(alpha = 0.7f))
+                }
+            },
+            colors = DatePickerDefaults.colors(containerColor = DeepOcean)
+        ) {
+            DatePicker(
+                state = datePickerState,
+                colors = DatePickerDefaults.colors(
+                    containerColor = DeepOcean,
+                    titleContentColor = Color.White,
+                    headlineContentColor = Color.White,
+                    weekdayContentColor = Color.White.copy(alpha = 0.7f),
+                    subheadContentColor = Color.White.copy(alpha = 0.7f),
+                    yearContentColor = Color.White,
+                    currentYearContentColor = AquaBlue,
+                    selectedYearContentColor = Color.White,
+                    selectedYearContainerColor = AquaBlue,
+                    dayContentColor = Color.White,
+                    selectedDayContentColor = Color.White,
+                    selectedDayContainerColor = AquaBlue,
+                    todayContentColor = AquaBlue,
+                    todayDateBorderColor = AquaBlue
+                )
+            )
+        }
     }
 
     Box(
@@ -132,8 +226,7 @@ fun TankGalleryScreen(
                     colors = listOf(
                         DeepOceanDark,
                         DeepOcean,
-                        DeepOcean,
-                        AquaBlueDark.copy(alpha = 0.6f)
+                        AquaBlueDark.copy(alpha = 0.4f)
                     )
                 )
             )
@@ -154,142 +247,442 @@ fun TankGalleryScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .padding(horizontal = 16.dp)
+                    .padding(top = 24.dp)
             ) {
-                // Header
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 48.dp, bottom = 24.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(
-                        onClick = onNavigateBack,
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(Color.Black.copy(alpha = 0.2f))
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White
-                        )
-                    }
-                    
-                    Spacer(modifier = Modifier.width(16.dp))
-                    
-                    Text(
-                        text = "Gallery",
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
+                // Top bar
+                GalleryTopBar(
+                    title = "Gallery",
+                    photoCount = filteredImages.size,
+                    totalCount = allImages.size,
+                    onNavigateBack = onNavigateBack,
+                    onCalendarClick = { showDatePicker = true }
+                )
+                
+                // Date selector bar
+                if (hasAnyImages) {
+                    GalleryDateSelectorBar(
+                        selectedDate = selectedDate,
+                        onDateChange = { selectedDate = it },
+                        onCalendarClick = { showDatePicker = true }
                     )
                 }
-
-                if (folders.isEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                imageVector = Icons.Default.Folder,
-                                contentDescription = null,
-                                tint = AquaBlue.copy(alpha = 0.3f),
-                                modifier = Modifier.size(80.dp)
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                text = "No photos yet",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = Color.White.copy(alpha = 0.6f)
-                            )
-                        }
+                
+                // Content
+                when {
+                    !hasAnyImages -> {
+                        // Empty state
+                        GalleryEmptyState(onAddClick = { showAddDialog = true })
                     }
-                } else {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(1),
-                        contentPadding = PaddingValues(bottom = 80.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        items(folders) { (date, thumbnailPath) ->
-                            FolderCard(
-                                date = date,
-                                thumbnailPath = thumbnailPath,
-                                onClick = { onNavigateToDateGallery(date) }
-                            )
+                    filteredImages.isEmpty() -> {
+                        // No photos for selected date
+                        NoPhotosForDateState(selectedDate = selectedDate)
+                    }
+                    else -> {
+                        // Photo grid
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(3),
+                            contentPadding = PaddingValues(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(filteredImages.size) { index ->
+                                ImageThumbnail(
+                                    galleryImage = filteredImages[index],
+                                    onClick = {
+                                        initialIndex = index
+                                        showFullScreen = true
+                                    },
+                                    onDeleteClick = {
+                                        imageToDelete = filteredImages[index]
+                                    }
+                                )
+                            }
                         }
                     }
                 }
             }
         }
+        
+        // Full Screen Image Viewer
+        if (showFullScreen && filteredImages.isNotEmpty()) {
+            FullScreenImageViewer(
+                images = filteredImages,
+                initialIndex = initialIndex,
+                onDismiss = { showFullScreen = false },
+                onDelete = { image ->
+                    imageToDelete = image
+                },
+                onShare = { image ->
+                    shareImage(context, image.path)
+                },
+                onRatingChanged = { image, rating ->
+                    viewModel.setRating(image, rating)
+                }
+            )
+        }
 
+        // Add Photo Dialog
         if (showAddDialog) {
-            Dialog(onDismissRequest = { showAddDialog = false }) {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = DeepOcean,
-                    modifier = Modifier.padding(16.dp)
+            AddPhotoDialog(
+                onDismiss = { showAddDialog = false },
+                onCameraClick = {
+                    val photoFile = createGalleryImageFile(context)
+                    val uri = FileProvider.getUriForFile(
+                        context,
+                        "${context.packageName}.fileprovider",
+                        photoFile
+                    )
+                    tempUri = uri
+                    cameraLauncher.launch(uri)
+                },
+                onGalleryClick = {
+                    galleryLauncher.launch("image/*")
+                }
+            )
+        }
+
+        // Delete Confirmation Dialog
+        if (imageToDelete != null) {
+            AlertDialog(
+                onDismissRequest = { imageToDelete = null },
+                title = { Text("Delete Photo?") },
+                text = { Text("Are you sure you want to delete this photo? This action cannot be undone.") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            imageToDelete?.let { img ->
+                                viewModel.deleteImage(img)
+                                if (filteredImages.size <= 1 && showFullScreen) {
+                                    showFullScreen = false
+                                }
+                            }
+                            imageToDelete = null
+                        }
+                    ) {
+                        Text("Delete", color = Color.Red)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { imageToDelete = null }) {
+                        Text("Cancel")
+                    }
+                },
+                containerColor = DeepOcean,
+                titleContentColor = Color.White,
+                textContentColor = Color.White.copy(alpha = 0.8f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun GalleryTopBar(
+    title: String,
+    photoCount: Int,
+    totalCount: Int,
+    onNavigateBack: () -> Unit,
+    onCalendarClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(
+            onClick = onNavigateBack,
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(GlassWhite)
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Back",
+                tint = Color.White
+            )
+        }
+        
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+            if (totalCount > 0) {
+                Text(
+                    text = "$photoCount of $totalCount photo${if (totalCount != 1) "s" else ""}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.6f)
+                )
+            }
+        }
+        
+        IconButton(
+            onClick = onCalendarClick,
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(GlassWhite)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.CalendarMonth,
+                contentDescription = "Select Date",
+                tint = Color.White
+            )
+        }
+    }
+}
+
+@Composable
+private fun GalleryDateSelectorBar(
+    selectedDate: Long,
+    onDateChange: (Long) -> Unit,
+    onCalendarClick: () -> Unit
+) {
+    val today = getGalleryTodayStart()
+    
+    val dates = remember(selectedDate) {
+        (-3..3).map { offset ->
+            val calendar = Calendar.getInstance()
+            calendar.timeInMillis = selectedDate
+            calendar.add(Calendar.DAY_OF_YEAR, offset)
+            calendar.set(Calendar.HOUR_OF_DAY, 0)
+            calendar.set(Calendar.MINUTE, 0)
+            calendar.set(Calendar.SECOND, 0)
+            calendar.set(Calendar.MILLISECOND, 0)
+            calendar.timeInMillis
+        }
+    }
+    
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(
+            onClick = {
+                val calendar = Calendar.getInstance()
+                calendar.timeInMillis = selectedDate
+                calendar.add(Calendar.DAY_OF_YEAR, -1)
+                onDateChange(calendar.timeInMillis)
+            },
+            modifier = Modifier.size(36.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.ChevronLeft,
+                contentDescription = "Previous day",
+                tint = Color.White.copy(alpha = 0.7f)
+            )
+        }
+        
+        LazyRow(
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(horizontal = 4.dp)
+        ) {
+            itemsIndexed(dates) { _, date ->
+                val isSelected = date == selectedDate
+                val isToday = date == today
+                val dayFormat = SimpleDateFormat("d", Locale.getDefault())
+                val weekdayFormat = SimpleDateFormat("EEE", Locale.getDefault())
+                
+                Column(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            if (isSelected) AquaBlue.copy(alpha = 0.3f)
+                            else Color.Transparent
+                        )
+                        .border(
+                            width = if (isSelected) 1.dp else 0.dp,
+                            color = if (isSelected) AquaBlue else Color.Transparent,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        .clickable { onDateChange(date) }
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = weekdayFormat.format(Date(date)),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isToday) AquaBlue else Color.White.copy(alpha = 0.6f),
+                        fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = dayFormat.format(Date(date)),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = if (isSelected) Color.White else Color.White.copy(alpha = 0.8f),
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                    )
+                    if (isToday) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(4.dp)
+                                .clip(CircleShape)
+                                .background(AquaBlue)
+                        )
+                    }
+                }
+            }
+        }
+        
+        IconButton(
+            onClick = {
+                val calendar = Calendar.getInstance()
+                calendar.timeInMillis = selectedDate
+                calendar.add(Calendar.DAY_OF_YEAR, 1)
+                onDateChange(calendar.timeInMillis)
+            },
+            modifier = Modifier.size(36.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.ChevronRight,
+                contentDescription = "Next day",
+                tint = Color.White.copy(alpha = 0.7f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun GalleryEmptyState(onAddClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.Image,
+            contentDescription = null,
+            tint = AquaBlue.copy(alpha = 0.3f),
+            modifier = Modifier.size(80.dp)
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = "No Photos Yet",
+            style = MaterialTheme.typography.headlineSmall,
+            color = Color.White,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Start building your tank's visual timeline",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White.copy(alpha = 0.6f),
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        TextButton(onClick = onAddClick) {
+            Text("Add your first photo", color = AquaBlue)
+        }
+    }
+}
+
+@Composable
+private fun NoPhotosForDateState(selectedDate: Long) {
+    val dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale.getDefault())
+    
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "📷",
+            style = MaterialTheme.typography.displayLarge
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = "No Photos on This Date",
+            style = MaterialTheme.typography.headlineSmall,
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = dateFormat.format(Date(selectedDate)),
+            style = MaterialTheme.typography.bodyLarge,
+            color = AquaBlue
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "Try selecting a different date",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White.copy(alpha = 0.6f),
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+private fun AddPhotoDialog(
+    onDismiss: () -> Unit,
+    onCameraClick: () -> Unit,
+    onGalleryClick: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = DeepOcean,
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Add Photo",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     Column(
-                        modifier = Modifier.padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable(onClick = onCameraClick)
+                            .padding(16.dp)
                     ) {
-                        Text(
-                            text = "Add Photo",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = Color.White
+                        Icon(
+                            imageVector = Icons.Default.PhotoCamera,
+                            contentDescription = "Camera",
+                            tint = AquaBlue,
+                            modifier = Modifier.size(48.dp)
                         )
-                        Spacer(modifier = Modifier.height(24.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable {
-                                        val photoFile = createGalleryImageFile(context)
-                                        val uri = FileProvider.getUriForFile(
-                                            context,
-                                            "${context.packageName}.fileprovider",
-                                            photoFile
-                                        )
-                                        tempUri = uri
-                                        cameraLauncher.launch(uri)
-                                    }
-                                    .padding(16.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.PhotoCamera,
-                                    contentDescription = "Camera",
-                                    tint = AquaBlue,
-                                    modifier = Modifier.size(48.dp)
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text("Camera", color = Color.White)
-                            }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Camera", color = Color.White)
+                    }
 
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable { galleryLauncher.launch("image/*") }
-                                    .padding(16.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.PhotoLibrary,
-                                    contentDescription = "Gallery",
-                                    tint = AquaBlue,
-                                    modifier = Modifier.size(48.dp)
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text("Gallery", color = Color.White)
-                            }
-                        }
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable(onClick = onGalleryClick)
+                            .padding(16.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PhotoLibrary,
+                            contentDescription = "Gallery",
+                            tint = AquaBlue,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Gallery", color = Color.White)
                     }
                 }
             }
@@ -297,65 +690,117 @@ fun TankGalleryScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun FolderCard(
-    date: String,
-    thumbnailPath: String?,
-    onClick: () -> Unit
+private fun FullScreenImageViewer(
+    images: List<GalleryImage>,
+    initialIndex: Int,
+    onDismiss: () -> Unit,
+    onDelete: (GalleryImage) -> Unit,
+    onShare: (GalleryImage) -> Unit,
+    onRatingChanged: (GalleryImage, Int) -> Unit
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(220.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = GlassWhite.copy(alpha = 0.1f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            if (thumbnailPath != null) {
-                Image(
-                    painter = rememberAsyncImagePainter(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(File(thumbnailPath))
-                            .crossfade(true)
-                            .build()
-                    ),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-                // Overlay
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.3f))
-                )
-            } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(DeepOcean.copy(alpha = 0.5f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Folder,
+        val safeInitialIndex = initialIndex.coerceIn(0, images.lastIndex)
+        val pagerState = rememberPagerState(initialPage = safeInitialIndex) { images.size }
+        
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+        ) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize()
+            ) { page ->
+                val image = images.getOrNull(page)
+                if (image != null) {
+                    Image(
+                        painter = rememberAsyncImagePainter(File(image.path)),
                         contentDescription = null,
-                        tint = AquaBlue.copy(alpha = 0.5f),
-                        modifier = Modifier.size(48.dp)
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clickable { onDismiss() }
                     )
                 }
             }
-
-            Text(
-                text = date,
-                style = MaterialTheme.typography.titleMedium,
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
+            
+            // Top Controls
+            Row(
                 modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(16.dp)
-            )
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
+                    .padding(top = 48.dp, start = 16.dp, end = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onDismiss) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Close",
+                        tint = Color.White
+                    )
+                }
+
+                Row {
+                    IconButton(
+                        onClick = {
+                            val currentImage = images.getOrNull(pagerState.currentPage)
+                            currentImage?.let { onShare(it) }
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = "Share",
+                            tint = Color.White
+                        )
+                    }
+                    
+                    IconButton(
+                        onClick = {
+                            val currentImage = images.getOrNull(pagerState.currentPage)
+                            currentImage?.let { onDelete(it) }
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete",
+                            tint = Color.White
+                        )
+                    }
+                }
+            }
+            
+            // Bottom Controls (Rating)
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .background(Color.Black.copy(alpha = 0.6f))
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                val currentImage = images.getOrNull(pagerState.currentPage)
+                if (currentImage != null) {
+                    Text(
+                        text = "Rate this photo",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    RatingBar(
+                        rating = currentImage.rating,
+                        onRatingChanged = { newRating ->
+                            onRatingChanged(currentImage, newRating)
+                        },
+                        starSize = 32.dp
+                    )
+                }
+            }
         }
     }
 }

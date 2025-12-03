@@ -88,4 +88,9 @@ sealed class Screen(val route: String) {
             return "date_gallery/$tankId/$dateString"
         }
     }
+    
+    /**
+     * Subscription screen - manage subscription and upgrade
+     */
+    data object Subscription : Screen("subscription")
 }

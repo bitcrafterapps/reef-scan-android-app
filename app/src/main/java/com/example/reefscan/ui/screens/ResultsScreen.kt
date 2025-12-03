@@ -1,6 +1,8 @@
 package com.example.reefscan.ui.screens
 
+import android.annotation.SuppressLint
 import android.net.Uri
+import android.view.MotionEvent
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.animation.AnimatedVisibility
@@ -82,9 +84,9 @@ import com.example.reefscan.ui.theme.Seafoam
 import com.example.reefscan.ui.theme.StatusHealthy
 import com.example.reefscan.ui.theme.StatusProblem
 import com.example.reefscan.ui.theme.StatusWarning
+import com.example.reefscan.util.WikipediaHelper
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.net.URLEncoder
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -102,6 +104,7 @@ fun ResultsScreen(
     val scope = rememberCoroutineScope()
     var showBottomSheet by remember { mutableStateOf(false) }
     var selectedWikiUrl by remember { mutableStateOf<String?>(null) }
+    var isLoadingWiki by remember { mutableStateOf(false) }
     
     // Load scan data
     LaunchedEffect(scanId) {
@@ -149,14 +152,17 @@ fun ResultsScreen(
                         onNavigateBack = onNavigateBack,
                         onNavigateToCamera = onNavigateToCamera,
                         onOpenWiki = { name ->
-                            try {
-                                // Extract scientific name if present in parentheses
-                                val scientificName = extractScientificName(name)
-                                val encodedName = URLEncoder.encode(scientificName, "UTF-8")
-                                selectedWikiUrl = "https://en.m.wikipedia.org/wiki/$encodedName"
-                                showBottomSheet = true
-                            } catch (e: Exception) {
-                                e.printStackTrace()
+                            scope.launch {
+                                try {
+                                    isLoadingWiki = true
+                                    showBottomSheet = true
+                                    // Use Wikipedia API to find correct article
+                                    selectedWikiUrl = WikipediaHelper.getWikipediaUrl(name)
+                                    isLoadingWiki = false
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                    isLoadingWiki = false
+                                }
                             }
                         }
                     )
@@ -171,9 +177,12 @@ fun ResultsScreen(
         }
         
         // Wikipedia Bottom Sheet
-        if (showBottomSheet && selectedWikiUrl != null) {
+        if (showBottomSheet) {
             ModalBottomSheet(
-                onDismissRequest = { showBottomSheet = false },
+                onDismissRequest = { 
+                    showBottomSheet = false
+                    selectedWikiUrl = null
+                },
                 sheetState = sheetState,
                 containerColor = DeepOcean,
                 contentColor = Color.White,
@@ -182,33 +191,76 @@ fun ResultsScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(bottom = 32.dp) // Add padding for navigation bar if needed
+                        .padding(bottom = 32.dp)
                 ) {
-                    AndroidView(
-                        factory = { context ->
-                            WebView(context).apply {
-                                settings.javaScriptEnabled = true
-                                settings.domStorageEnabled = true
-                                webViewClient = WebViewClient()
-                                loadUrl(selectedWikiUrl!!)
+                    if (isLoadingWiki || selectedWikiUrl == null) {
+                        // Show loading indicator while fetching Wikipedia URL
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                CircularProgressIndicator(color = AquaBlue)
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    text = "Finding article...",
+                                    color = Color.White.copy(alpha = 0.7f)
+                                )
                             }
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    )
+                        }
+                    } else {
+                        AndroidView(
+                            factory = { context ->
+                                @SuppressLint("ClickableViewAccessibility")
+                                object : WebView(context) {
+                                    override fun onTouchEvent(event: MotionEvent?): Boolean {
+                                        // Request parent to not intercept touch events
+                                        // This allows the WebView to scroll properly
+                                        when (event?.action) {
+                                            MotionEvent.ACTION_DOWN -> {
+                                                parent?.requestDisallowInterceptTouchEvent(true)
+                                            }
+                                            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                                                parent?.requestDisallowInterceptTouchEvent(false)
+                                            }
+                                        }
+                                        return super.onTouchEvent(event)
+                                    }
+                                }.apply {
+                                    settings.javaScriptEnabled = true
+                                    settings.domStorageEnabled = true
+                                    settings.loadWithOverviewMode = true
+                                    settings.useWideViewPort = true
+                                    settings.builtInZoomControls = true
+                                    settings.displayZoomControls = false
+                                    
+                                    // Enable scrolling
+                                    isVerticalScrollBarEnabled = true
+                                    isHorizontalScrollBarEnabled = true
+                                    scrollBarStyle = WebView.SCROLLBARS_INSIDE_OVERLAY
+                                    
+                                    // Enable nested scrolling for bottom sheet compatibility
+                                    isNestedScrollingEnabled = true
+                                    
+                                    webViewClient = WebViewClient()
+                                    loadUrl(selectedWikiUrl!!)
+                                }
+                            },
+                            update = { webView ->
+                                // Update URL if it changes
+                                if (webView.url != selectedWikiUrl) {
+                                    webView.loadUrl(selectedWikiUrl!!)
+                                }
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 }
             }
         }
     }
-}
-
-/**
- * Extracts scientific name from a string like "Common Name (Scientific Name)"
- * or returns the original string if no parentheses found.
- */
-private fun extractScientificName(name: String): String {
-    val regex = "\\((.*?)\\)".toRegex()
-    val match = regex.find(name)
-    return match?.groupValues?.get(1) ?: name
 }
 
 @Composable

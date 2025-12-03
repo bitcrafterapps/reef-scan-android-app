@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.example.reefscan.ui.components.UsageLimitOverlay
 import com.example.reefscan.ui.theme.AquaBlue
 import com.example.reefscan.ui.theme.CoralAccent
 import com.example.reefscan.ui.theme.DeepOcean
@@ -53,6 +54,7 @@ fun LoadingScreen(
     tankId: Long,
     onNavigateToResults: (String) -> Unit,
     onNavigateBack: () -> Unit,
+    onNavigateToSubscription: () -> Unit = {},
     viewModel: LoadingViewModel = viewModel(factory = LoadingViewModelFactory(LocalContext.current))
 ) {
     val state by viewModel.state.collectAsState()
@@ -137,8 +139,8 @@ fun LoadingScreen(
                     is LoadingState.Analyzing -> {
                         // Modern Status Indicators
                         Box(
-        contentAlignment = Alignment.Center
-    ) {
+                            contentAlignment = Alignment.Center
+                        ) {
                             CircularProgressIndicator(
                                 color = AquaBlue.copy(alpha = 0.2f),
                                 modifier = Modifier.size(64.dp),
@@ -190,6 +192,14 @@ fun LoadingScreen(
                     }
                     is LoadingState.Success -> {
                         // Will navigate automatically
+                    }
+                    is LoadingState.UsageLimitReached -> {
+                        // Show usage limit overlay
+                        UsageLimitOverlay(
+                            usageData = currentState.usageData,
+                            onUpgradeClick = onNavigateToSubscription,
+                            onGoBack = onNavigateBack
+                        )
                     }
                 }
             }
