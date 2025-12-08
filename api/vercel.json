@@ -1,0 +1,33 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "src/index.ts",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/v1/(.*)",
+      "dest": "src/index.ts"
+    },
+    {
+      "src": "/health",
+      "dest": "src/index.ts"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "src/index.ts"
+    }
+  ],
+  "regions": ["iad1", "sfo1", "cdg1"],
+  "functions": {
+    "src/index.ts": {
+      "memory": 1024,
+      "maxDuration": 30
+    }
+  },
+  "env": {
+    "NODE_ENV": "production"
+  }
+}
