@@ -9,19 +9,8 @@
       }
     }
   ],
-  "routes": [
-    {
-      "src": "/v1/(.*)",
-      "dest": "src/index.ts"
-    },
-    {
-      "src": "/health",
-      "dest": "src/index.ts"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "src/index.ts"
-    }
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/src/index.ts" }
   ],
   "headers": [
     {
